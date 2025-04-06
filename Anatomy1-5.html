@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест</title>
+    <link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+    <div class="container">
+        <div id="test-container"></div>
+        <div class="result" id="result"></div>
+        <button class="submit" onclick="submitTest()">Перевірити результат</button>
+        <button class="down" onclick="scrollToBottom()">▼</button>
+        <button class="backhome" style="display: none;" id="otherTestsBtn" onclick="loadOtherTests()" >Назад на головну</button>
+    </div>
+
+    <script>
+        function scrollToBottom() {
+            window.scrollTo({
+                top: document.body.scrollHeight,
+                behavior: 'smooth' 
+            });
+        }
+        let shuffledTest = []; 
+    
+        async function fetchTestData() {
+            try {
+                const response = await fetch('Database/Anatomy1-5.txt');
+                const data = await response.text();
+                return parseTestData(data);
+            } catch (error) {
+                console.error("Помилка завантаження тесту:", error);
+                return [];
+            }
+        }
+    
+        function parseTestData(data) {
+            const questions = [];
+            const lines = data.split('\n');
+            let currentQuestion = null;
+            const phrases = Array.from({length: 100}, (_, i) => `${i + 1}.`);
+    
+            for (const line of lines) {
+                if (line.trim() === '--------------------' || line.trim() === '-------------------') {
+                    continue;
+                }
+    
+                if (phrases.some(phrase => line.trim().startsWith(phrase))) {
+                    if (currentQuestion) questions.push(currentQuestion);  
+                    currentQuestion = {
+                        question: line.trim(),
+                        answers: [],
+                        correctAnswer: null
+                    };
+                } else if (/^(A|B|C|D|E)\. \*/.test(line.trim())) {
+                    currentQuestion.correctAnswer = line.trim().replace(/^(A|B|C|D|E)\. \*/, '').trim();
+                    currentQuestion.answers.push(currentQuestion.correctAnswer);
+                } else if (/^[A-E]\.\s*(.*)/.test(line.trim())) {
+                    let match = line.trim().match(/^[A-E]\.\s*(.*)/);
+                    if (match) {
+                        let answerText = match[1].trim();
+                        if (!currentQuestion.answers.includes(answerText)) {
+                            currentQuestion.answers.push(answerText);
+                        }
+                    }
+                } else if (line.trim().startsWith('*')) {
+                    let answerText = line.trim().substring(1).trimStart();
+                    if (!currentQuestion.answers.includes(answerText)) {
+                        currentQuestion.answers.push(answerText);
+                    }
+                    currentQuestion.correctAnswer = answerText;
+                } else if (line.trim().length > 0) {
+                    let answerText = line.trim().replace(/^[BE]\.\s*/, '').trim();
+                    if (!currentQuestion.answers.includes(answerText)) {
+                        currentQuestion.answers.push(answerText);
+                    }
+                }
+            }
+    
+            if (currentQuestion) questions.push(currentQuestion);  
+            return questions;
+        }
+    
+        function shuffleArray(arr) {
+            return arr.sort(() => Math.random() - 0.5);
+        }
+    
+        function shuffleTestData(test) {
+            const shuffledQuestions = shuffleArray(test);
+            
+            shuffledQuestions.forEach(question => {
+                question.answers = shuffleArray(question.answers);
+            });
+    
+            return shuffledQuestions;
+        }
+    
+        async function displayTest() {
+            const test = await fetchTestData();
+            shuffledTest = shuffleTestData(test);  
+            const container = document.getElementById('test-container');
+            container.innerHTML = '';
+    
+            shuffledTest.forEach((item, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.classList.add('question');
+    
+                const questionTitle = document.createElement('p');
+                questionTitle.innerText = item.question;
+                questionDiv.appendChild(questionTitle);
+    
+                const answersDiv = document.createElement('div');
+                answersDiv.classList.add('answers');
+    
+                item.answers.forEach((answer) => {
+                    const label = document.createElement('label');
+                    const input = document.createElement('input');
+                    input.type = 'radio';
+                    input.name = `question${index}`;
+                    input.value = answer;
+    
+                    input.addEventListener('change', () => showFeedback(input, item, questionDiv));
+    
+                    label.appendChild(input);
+                    label.appendChild(document.createTextNode(answer));
+                    answersDiv.appendChild(label);
+                });
+    
+                questionDiv.appendChild(answersDiv);
+                container.appendChild(questionDiv);
+            });
+        }
+    
+        function showFeedback(input, item, questionDiv) {
+            const feedbackDiv = document.createElement('div');
+            feedbackDiv.classList.add('feedback');
+    
+            const isCorrect = input.value === item.correctAnswer;
+            if (isCorrect) {
+                feedbackDiv.classList.add('correct');
+                feedbackDiv.innerText = "Правильна відповідь!";
+            } else {
+                feedbackDiv.classList.add('incorrect');
+                feedbackDiv.innerText = `Неправильна відповідь. Правильна: ${item.correctAnswer}`;
+            }
+    
+            const existingFeedback = questionDiv.querySelector('.feedback');
+            if (existingFeedback) {
+                existingFeedback.remove();
+            }
+            questionDiv.appendChild(feedbackDiv);
+        }
+    
+        displayTest();
+    </script>
+    
+    
+    
+    
+    
+
+</body>
+</html>
